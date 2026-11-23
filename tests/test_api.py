@@ -43,3 +43,16 @@ def test_report_is_xlsx(monkeypatch):
     r = client.get("/report")
     assert r.status_code == 200
     assert r.content[:2] == b"PK"  # los .xlsx son zips
+
+def test_index_serves_html():
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+    assert "Mantenimiento predictivo" in r.text
+
+
+def test_report_accepts_costs(monkeypatch):
+    monkeypatch.setattr(main, "default_fleet", fake_fleet)
+    r = client.get("/report?cost_unplanned=1000&cost_preventive=100")
+    assert r.status_code == 200
+    assert r.content[:2] == b"PK"
