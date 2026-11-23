@@ -81,6 +81,16 @@ Por defecto: rojo si RUL < 30 ciclos, ámbar si < 60. Los costes (5.000 € por 
 python -m pytest -v
 ```
 
+## Capturas
+
+### Web local
+![Web de la flota](docs/web-dashboard.png)
+
+### Dashboard Excel
+| Resumen | Flota | Alertas |
+|---|---|---|
+| ![Resumen](docs/excel-resumen.png) | ![Flota](docs/excel-flota.png) | ![Alertas](docs/excel-alertas.png) |
+
 ## Limitaciones
 
 - Solo FD001 (una condición operativa y un modo de fallo).
