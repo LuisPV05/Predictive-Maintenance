@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mantenimiento predictivo de flota</title>
+<style>
+  :root {
+    --bg: #f5f7fa; --card: #ffffff; --text: #1f2937; --muted: #6b7280;
+    --border: #e5e7eb; --accent: #1f3864;
+    --red: #f4b6b6; --amber: #ffe699; --green: #c6e0b4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111827; --card: #1f2937; --text: #f3f4f6; --muted: #9ca3af;
+      --border: #374151; --accent: #8fb0ee;
+      --red: #7f2d2d; --amber: #7a6320; --green: #3d5a2a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); }
+  main { max-width: 1000px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { margin: 0 0 4px; font-size: 1.6rem; color: var(--accent); }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+  label { display: flex; flex-direction: column; font-size: .8rem; color: var(--muted); gap: 4px; }
+  input[type=number] { width: 120px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); }
+  button { padding: 8px 14px; border: 0; border-radius: 6px; background: var(--accent); color: var(--bg); font-weight: 600; cursor: pointer; }
+  button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+  .kpi span { display: block; font-size: .75rem; color: var(--muted); }
+  .kpi strong { font-size: 1.5rem; }
+  .table-wrap { overflow-x: auto; max-height: 460px; overflow-y: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { position: sticky; top: 0; background: var(--card); }
+  .badge { padding: 2px 10px; border-radius: 999px; font-size: .8rem; font-weight: 600; }
+  .ROJO { background: var(--red); } .AMBAR { background: var(--amber); } .VERDE { background: var(--green); }
+  #msg { color: var(--muted); margin: 8px 0 0; min-height: 1.2em; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Mantenimiento predictivo de flota</h1>
+  <p class="sub">Predicción de vida útil restante (RUL) por vehículo, con alertas y KPIs.</p>
+
+  <section class="card">
+    <div class="row">
+      <button id="btn-example">Usar flota de ejemplo</button>
+      <label>Subir lecturas (.txt)
+        <input type="file" id="file" accept=".txt,.csv">
+      </label>
+      <button id="btn-upload" class="secondary">Predecir archivo</button>
+    </div>
+    <p id="msg"></p>
+  </section>
+
+  <section class="card">
+    <div class="row">
+      <label>Umbral rojo (RUL &lt;)<input type="number" id="red" value="30" min="0"></label>
+      <label>Umbral ámbar (RUL &lt;)<input type="number" id="amber" value="60" min="0"></label>
+      <label>Coste parada (€)<input type="number" id="cost-u" value="5000" min="0"></label>
+      <label>Coste preventivo (€)<input type="number" id="cost-p" value="800" min="0"></label>
+      <button id="btn-excel" class="secondary">Descargar Excel</button>
+    </div>
+  </section>
+
+  <section class="kpis" id="kpis"></section>
+
+  <section class="card" style="margin-top:16px">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Vehículo</th><th>Ciclos operados</th><th>RUL predicho</th><th>Estado</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+  let fleet = [];
+  const $ = (id) => document.getElementById(id);
+  const num = (id) => Number($(id).value) || 0;
+
+  function classify(rul, red, amber) {
+    if (rul < red) return "ROJO";
+    if (rul < amber) return "ÁMBAR";
+    return "VERDE";
+  }
+
+  function setMsg(text) { $("msg").textContent = text; }
+
+  async function loadFleet(url, options) {
+    setMsg("Calculando...");
+    try {
+      const res = await fetch(url, options);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "Error " + res.status);
+      }
+      fleet = await res.json();
+      setMsg(fleet.length + " vehículos cargados.");
+      render();
+    } catch (e) {
+      setMsg("No se pudo cargar: " + e.message);
+    }
+  }
+
+  function kpi(label, value) {
+    const div = document.createElement("div");
+    div.className = "kpi";
+    const s = document.createElement("span");
+    s.textContent = label;
+    const b = document.createElement("strong");
+    b.textContent = value;
+    div.append(s, b);
+    return div;
+  }
+
+  function render() {
+    const red = num("red"), amber = num("amber");
+    const rows = fleet
+      .map((v) => ({ ...v, estado: classify(v.rul_pred, red, amber) }))
+      .sort((a, b) => a.rul_pred - b.rul_pred);
+
+    const n = rows.length;
+    const nRed = rows.filter((r) => r.estado === "ROJO").length;
+    const nAmber = rows.filter((r) => r.estado === "ÁMBAR").length;
+    const mean = n ? rows.reduce((s, r) => s + r.rul_pred, 0) / n : 0;
+    const saved = nRed * (num("cost-u") - num("cost-p"));
+    const fmt = new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1 });
+
+    $("kpis").replaceChildren(
+      kpi("Vehículos", n),
+      kpi("En rojo", nRed),
+      kpi("En ámbar", nAmber),
+      kpi("% en rojo", n ? fmt.format((nRed / n) * 100) + " %" : "0 %"),
+      kpi("RUL medio (ciclos)", fmt.format(mean)),
+      kpi("Coste evitado", new Intl.NumberFormat("es-ES").format(saved) + " €")
+    );
+
+    const body = $("rows");
+    body.replaceChildren();
+    for (const r of rows) {
+      const tr = document.createElement("tr");
+      const cells = [r.vehiculo, r.ciclos_operados, fmt.format(r.rul_pred)];
+      for (const c of cells) {
+        const td = document.createElement("td");
+        td.textContent = c;
+        tr.append(td);
+      }
+      const td = document.createElement("td");
+      const badge = document.createElement("span");
+      badge.className = "badge " + r.estado.replace("Á", "A");
+      badge.textContent = r.estado;
+      td.append(badge);
+      tr.append(td);
+      body.append(tr);
+    }
+  }
+
+  $("btn-example").addEventListener("click", () => loadFleet("/fleet"));
+
+  $("btn-upload").addEventListener("click", () => {
+    const file = $("file").files[0];
+    if (!file) { setMsg("Elige primero un archivo."); return; }
+    const form = new FormData();
+    form.append("file", file);
+    loadFleet("/fleet/upload", { method: "POST", body: form });
+  });
+
+  $("btn-excel").addEventListener("click", () => {
+    const params = new URLSearchParams({
+      red: num("red"), amber: num("amber"),
+      cost_unplanned: num("cost-u"), cost_preventive: num("cost-p"),
+    });
+    window.location = "/report?" + params;
+  });
+
+  for (const id of ["red", "amber", "cost-u", "cost-p"]) {
+    $(id).addEventListener("input", render);
+  }
+
+  loadFleet("/fleet");
+</script>
+</body>
+</html>
