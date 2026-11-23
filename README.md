@@ -1,4 +1,5 @@
 # Predictive-Maintenance
+![CI](https://github.com/LuisPV05/Predictive-Maintenance/actions/workflows/ci.yml/badge.svg)
 
 Mantenimiento predictivo para talleres y flotas: predice la **vida útil restante (RUL)** de cada vehículo a partir de sensores y genera un **dashboard en Excel** con alertas y KPIs para el jefe de taller.
 
