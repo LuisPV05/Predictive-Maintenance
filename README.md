@@ -93,6 +93,7 @@ python -m pytest -v
 - Intervalos de incertidumbre en el RUL e interpretabilidad con SHAP.
 - Hoja de sensores con gráficos de degradación por vehículo.
 - Integración continua con GitHub Actions.
+- Mejorar en la web local.
 
 ## Datos y licencia
 
