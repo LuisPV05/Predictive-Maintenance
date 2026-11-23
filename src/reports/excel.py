@@ -2,6 +2,7 @@ from openpyxl import Workbook
 from openpyxl.chart import BarChart, Reference
 from openpyxl.formatting.rule import FormulaRule
 from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.chart.series import DataPoint
 
 HEADER_FILL = PatternFill("solid", fgColor="1F3864")
 HEADER_FONT = Font(bold=True, color="FFFFFF")
@@ -12,7 +13,7 @@ RED = PatternFill(start_color="F4B6B6", end_color="F4B6B6", fill_type="solid")
 AMBER = PatternFill(start_color="FFE699", end_color="FFE699", fill_type="solid")
 GREEN = PatternFill(start_color="C6E0B4", end_color="C6E0B4", fill_type="solid")
 
-MAX_ALERTS = 20
+MAX_ALERTS = 50
 
 
 def _header(ws, row, labels):
@@ -133,6 +134,13 @@ def _build_summary(ws, n):
     chart.add_data(Reference(ws, min_col=2, min_row=4, max_row=6))
     chart.set_categories(Reference(ws, min_col=1, min_row=4, max_row=6))
     chart.height, chart.width = 7, 12
+    chart.x_axis.delete = False
+    chart.y_axis.delete = False
+    series = chart.series[0]
+    for idx, color in enumerate(("C00000", "FFC000", "70AD47")):
+        point = DataPoint(idx=idx)
+        point.graphicalProperties.solidFill = color
+        series.dPt.append(point)
     ws.add_chart(chart, "D3")
 
 
