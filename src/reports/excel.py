@@ -56,7 +56,12 @@ def _build_params(ws, red, amber, cost_unplanned, cost_preventive):
 def _build_fleet(ws, df):
     n = len(df)
     last = n + 1
-    _header(ws, 1, ["Vehículo", "Ciclos operados", "RUL predicho", "Estado", "Prioridad"])
+    has_drivers = "sensores_clave" in df.columns
+    labels = ["Vehículo", "Ciclos operados", "RUL predicho", "Estado", "Prioridad"]
+    if has_drivers:
+        labels.append("Sensores clave")
+    last_col = get_column_letter(len(labels))
+    _header(ws, 1, labels)
     for i, row in enumerate(df.itertuples(index=False), start=2):
         ws.cell(row=i, column=1, value=int(row.vehiculo))
         ws.cell(row=i, column=2, value=int(row.ciclos_operados))
@@ -75,11 +80,14 @@ def _build_fleet(ws, df):
             column=5,
             value=f"=RANK(C{i},$C$2:$C${last},1)+COUNTIF($C$2:C{i},C{i})-1",
         )
-    _traffic_light(ws, "D", f"A2:E{last}")
-    for col, width in zip("ABCDE", (12, 18, 16, 12, 12)):
+        if has_drivers:
+            ws.cell(row=i, column=6, value=str(row.sensores_clave))
+    _traffic_light(ws, "D", f"A2:{last_col}{last}")
+    widths = (12, 18, 16, 12, 12, 24)
+    for col, width in zip("ABCDEF", widths):
         ws.column_dimensions[col].width = width
     ws.freeze_panes = "A2"
-    ws.auto_filter.ref = f"A1:E{last}"
+    ws.auto_filter.ref = f"A1:{last_col}{last}"
 
 
 def _build_alerts(ws, n):
@@ -216,6 +224,8 @@ def _build_sensors(ws, n_fleet, n_data):
         series = Series(y, x, title_from_data=True)
         series.marker.symbol = "none"
         series.smooth = False
+        series.graphicalProperties.line.solidFill = "1F3864"
+        series.graphicalProperties.line.width = 15000
         chart.series.append(series)
         chart.height, chart.width = 7, 12
         anchor = f"{'A' if i % 2 == 0 else 'H'}{9 + 15 * (i // 2)}"
