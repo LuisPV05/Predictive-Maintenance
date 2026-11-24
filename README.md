@@ -92,6 +92,11 @@ python -m pytest -v
 |---|---|---|
 | ![Resumen](docs/excel-resumen.png) | ![Flota](docs/excel-flota.png) | ![Alertas](docs/excel-alertas.png) |
 
+### Interpretabilidad
+Cada vehículo muestra los sensores que más reducen su RUL (valores SHAP de LightGBM).
+
+![Importancia de sensores](docs/importancia-sensores.png)
+
 ## Limitaciones
 
 - Solo FD001 (una condición operativa y un modo de fallo).
