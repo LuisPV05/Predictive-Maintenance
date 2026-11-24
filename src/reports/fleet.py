@@ -4,7 +4,7 @@ import pandas as pd
 from src.data.load import load_cmapss
 from src.features.build import build_features
 from src.models.baseline import last_cycle_per_unit
-
+from src.reports.excel import SENSOR_CHART
 
 def load_artifacts(
     model_path="models_lightgbm.joblib", scaler_path="models_scaler.joblib"
@@ -30,3 +30,10 @@ def predict_fleet(raw_path="data/raw", **artifact_paths):
     """Predice la flota de ejemplo (test_FD001)."""
     model, scaler = load_artifacts(**artifact_paths)
     return predict_from_raw(load_cmapss(raw_path, split="test"), model, scaler)
+
+def load_readings(raw_path="data/raw"):
+    """Lecturas en bruto de la flota de ejemplo, para la hoja Sensores."""
+    raw = load_cmapss(raw_path, split="test")
+    cols = ["unit", "cycle"] + SENSOR_CHART
+    out = raw[cols].sort_values(["unit", "cycle"]).reset_index(drop=True)
+    return out.rename(columns={"unit": "vehiculo", "cycle": "ciclo"})
