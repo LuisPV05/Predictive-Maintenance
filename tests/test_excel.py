@@ -72,3 +72,12 @@ def test_sensors_has_selector_and_charts(tmp_path):
     assert len(ws.data_validations.dataValidation) == 1
     assert str(ws["B4"].value).startswith("=")
     assert len(ws._charts) == len(SENSOR_CHART)
+
+def test_fleet_sheet_includes_drivers_column(tmp_path):
+    df = make_fleet()
+    df["sensores_clave"] = ["s11, s4", "s12", "-", "-"]
+    path = tmp_path / "drivers.xlsx"
+    build_dashboard(df, path)
+    ws = load_workbook(path)["Flota"]
+    assert ws["F1"].value == "Sensores clave"
+    assert ws["F2"].value == "s11, s4"
