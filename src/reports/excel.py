@@ -1,8 +1,10 @@
 from openpyxl import Workbook
-from openpyxl.chart import BarChart, Reference
+from openpyxl.chart import BarChart, Reference, ScatterChart, Series
+from openpyxl.chart.series import DataPoint
 from openpyxl.formatting.rule import FormulaRule
 from openpyxl.styles import Alignment, Font, PatternFill
-from openpyxl.chart.series import DataPoint
+from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.datavalidation import DataValidation
 
 HEADER_FILL = PatternFill("solid", fgColor="1F3864")
 HEADER_FONT = Font(bold=True, color="FFFFFF")
@@ -14,6 +16,8 @@ AMBER = PatternFill(start_color="FFE699", end_color="FFE699", fill_type="solid")
 GREEN = PatternFill(start_color="C6E0B4", end_color="C6E0B4", fill_type="solid")
 
 MAX_ALERTS = 50
+SENSOR_CHART = ["s11", "s4", "s12", "s7", "s15", "s21"]
+MAX_CYCLES = 400
 
 
 def _header(ws, row, labels):
@@ -144,20 +148,105 @@ def _build_summary(ws, n):
     ws.add_chart(chart, "D3")
 
 
+def _build_data(ws, readings):
+    """Lecturas en bruto de todos los vehículos (ordenadas por vehículo y ciclo)."""
+    cols = ["vehiculo", "ciclo"] + SENSOR_CHART
+    _header(ws, 1, cols)
+    for r in readings[cols].itertuples(index=False):
+        ws.append([int(r[0]), int(r[1])] + [float(x) for x in r[2:]])
+    ws.freeze_panes = "A2"
+
+
+def _build_sensors(ws, n_fleet, n_data):
+    fl, dl = n_fleet + 1, n_data + 1
+    ws["A1"] = "Sensores por vehículo"
+    ws["A1"].font = TITLE_FONT
+    ws.column_dimensions["A"].width = 28
+
+    ws["A3"] = "Vehículo (elige uno)"
+    ws["B3"] = 1
+    ws["B3"].fill = INPUT_FILL
+    dv = DataValidation(type="list", formula1=f"=Flota!$A$2:$A${fl}", allow_blank=False)
+    ws.add_data_validation(dv)
+    dv.add("B3")
+
+    fleet = lambda col: f"Flota!${col}$2:${col}${fl}"
+    ws["A4"] = "RUL predicho (ciclos)"
+    ws["B4"] = f"=INDEX({fleet('C')},MATCH($B$3,{fleet('A')},0))"
+    ws["A5"] = "Estado"
+    ws["B5"] = f"=INDEX({fleet('D')},MATCH($B$3,{fleet('A')},0))"
+    ws["A6"] = "Ciclos registrados"
+    ws["B6"] = f"=COUNTIF(Datos!$A$2:$A${dl},$B$3)"
+    ws["A7"] = "Primera fila en Datos (aux.)"
+    ws["B7"] = f"=MATCH($B$3,Datos!$A$2:$A${dl},0)"
+    for text, fill in (("ROJO", RED), ("ÁMBAR", AMBER), ("VERDE", GREEN)):
+        ws.conditional_formatting.add(
+            "B5", FormulaRule(formula=[f'$B$5="{text}"'], fill=fill)
+        )
+
+    # Tabla auxiliar (a la derecha) que alimenta los gráficos.
+    # #N/A = ciclo inexistente, para que el gráfico no lo dibuje.
+    tc, hr = 18, 3
+    last = hr + MAX_CYCLES
+    for j, label in enumerate(["Ciclo"] + SENSOR_CHART):
+        ws.cell(row=hr, column=tc + j, value=label)
+    for k in range(1, MAX_CYCLES + 1):
+        r = hr + k
+        ws.cell(row=r, column=tc, value=f"=IF({k}<=$B$6,{k},NA())")
+        for i in range(len(SENSOR_CHART)):
+            dcol = get_column_letter(3 + i)
+            ws.cell(
+                row=r,
+                column=tc + 1 + i,
+                value=(
+                    f"=IF({k}<=$B$6,"
+                    f"INDEX(Datos!${dcol}$2:${dcol}${dl},$B$7+{k}-1),NA())"
+                ),
+            )
+
+    for i, sensor in enumerate(SENSOR_CHART):
+        chart = ScatterChart()
+        chart.title = f"{sensor} frente al ciclo"
+        chart.legend = None
+        chart.x_axis.title = "Ciclo"
+        chart.x_axis.delete = False
+        chart.y_axis.delete = False
+        x = Reference(ws, min_col=tc, min_row=hr + 1, max_row=last)
+        y = Reference(ws, min_col=tc + 1 + i, min_row=hr, max_row=last)
+        series = Series(y, x, title_from_data=True)
+        series.marker.symbol = "none"
+        series.smooth = False
+        chart.series.append(series)
+        chart.height, chart.width = 7, 12
+        anchor = f"{'A' if i % 2 == 0 else 'H'}{9 + 15 * (i // 2)}"
+        ws.add_chart(chart, anchor)
+
+
 def build_dashboard(
-    df, path, red=30, amber=60, cost_unplanned=5000, cost_preventive=800
+    df,
+    path,
+    red=30,
+    amber=60,
+    cost_unplanned=5000,
+    cost_preventive=800,
+    readings=None,
 ):
-    """Genera el libro de Excel del dashboard a partir de las predicciones."""
+    """Genera el libro de Excel. Con 'readings' añade las hojas Sensores y Datos."""
     wb = Workbook()
     ws_summary = wb.active
     ws_summary.title = "Resumen"
     ws_fleet = wb.create_sheet("Flota")
     ws_alerts = wb.create_sheet("Alertas")
+    ws_sensors = wb.create_sheet("Sensores") if readings is not None else None
     ws_params = wb.create_sheet("Parametros")
+    ws_data = wb.create_sheet("Datos") if readings is not None else None
 
     _build_params(ws_params, red, amber, cost_unplanned, cost_preventive)
     _build_fleet(ws_fleet, df)
     _build_alerts(ws_alerts, len(df))
     _build_summary(ws_summary, len(df))
+    if readings is not None:
+        _build_data(ws_data, readings)
+        _build_sensors(ws_sensors, len(df), len(readings))
     wb.save(path)
     return path
