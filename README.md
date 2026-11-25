@@ -117,7 +117,9 @@ Cada vehículo muestra los sensores que más reducen su RUL (valores SHAP de Lig
 
 ## Umbral de alerta óptimo
 
-Con los costes de ejemplo (5.000 € por parada no planificada y 800 € por preventivo) y considerando fallo un RUL real ≤ 30 ciclos, el umbral que minimiza el coste total en los 100 motores de test es **X ciclos** (coste Y €).
+Con los costes de ejemplo (5.000 € por parada no planificada y 800 € por preventivo) y considerando fallo un RUL real ≤ 30 ciclos, el umbral que minimiza el coste total en los 100 motores de test es **45 ciclos** (coste ≈ 32.000 €).
+
+La curva es plana entre 45 y 90 ciclos, así que cualquier umbral de ese rango es razonable. El óptimo queda por encima del horizonte de fallo (30) porque el modelo tiene error y una parada cuesta más que un preventivo.
 
 ![Coste por umbral](docs/umbral-coste.png)
 
