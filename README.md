@@ -12,6 +12,8 @@ Proyecto personal de ciencia de datos sobre el dataset NASA C-MAPSS (turbofan), 
 - **Modelos:** regresión lineal, Random Forest y LightGBM.
 - **Dashboard Excel** con fórmulas vivas: umbrales y costes editables en la hoja `Parametros`, y todo se recalcula (estado, alertas, KPIs).
 - **API FastAPI** y una página web local para subir lecturas y ver el semáforo.
+- **Hoja Sensores** con desplegable de vehículo y 6 gráficos de degradación.
+- **Interpretabilidad (SHAP):** la hoja Flota muestra los 3 sensores que más reducen el RUL de cada vehículo.
 
 ## Resultados (test FD001, 100 motores)
 
@@ -31,6 +33,8 @@ LightGBM mejora el error medio, pero el score NASA (que penaliza más predecir t
 | Flota | RUL predicho por vehículo con semáforo y prioridad |
 | Alertas | Vehículos críticos ordenados por urgencia |
 | Parametros | Umbrales rojo/ámbar y costes (celdas amarillas editables) |
+| Sensores | Evolución de sensores clave del vehículo elegido |
+| Datos | Lecturas en bruto que alimentan la hoja Sensores |
 
 Por defecto: rojo si RUL < 30 ciclos, ámbar si < 60. Los costes (5.000 € por parada no planificada, 800 € por mantenimiento preventivo) son valores de ejemplo y se pueden cambiar.
 
@@ -90,7 +94,7 @@ python -m pytest -v
 ### Dashboard Excel
 | Resumen | Flota | Alertas |
 |---|---|---|
-| ![Resumen](docs/excel-resumen.png) | ![Flota](docs/excel-flota.png) | ![Alertas](docs/excel-alertas.png) |
+| ![Resumen](docs/excel-resumen.png) | ![Flota](docs/excel-flota.png) | ![Alertas](docs/excel-alertas.png) | ![Sensores](docs/excel-sensores.png) | ![Datos](docs/excel-datos.png) |
 
 ### Interpretabilidad
 Cada vehículo muestra los sensores que más reducen su RUL (valores SHAP de LightGBM).
