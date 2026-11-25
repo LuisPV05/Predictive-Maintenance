@@ -115,6 +115,14 @@ Cada vehículo muestra los sensores que más reducen su RUL (valores SHAP de Lig
 
 ![Importancia de sensores](docs/importancia-sensores.png)
 
+## Umbral de alerta óptimo
+
+Con los costes de ejemplo (5.000 € por parada no planificada y 800 € por preventivo) y considerando fallo un RUL real ≤ 30 ciclos, el umbral que minimiza el coste total en los 100 motores de test es **X ciclos** (coste Y €).
+
+![Coste por umbral](docs/umbral-coste.png)
+
+Es una estimación sobre pocos vehículos; en un taller real habría que recalibrarla con su histórico y sus costes.
+
 ## Limitaciones
 
 - Solo FD001 (una condición operativa y un modo de fallo).
