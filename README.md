@@ -91,10 +91,24 @@ python -m pytest -v
 ### Web local
 ![Web de la flota](docs/web-dashboard.png)
 
-### Dashboard Excel
-| Resumen | Flota | Alertas |
-|---|---|---|
-| ![Resumen](docs/excel-resumen.png) | ![Flota](docs/excel-flota.png) | ![Alertas](docs/excel-alertas.png) | ![Sensores](docs/excel-sensores.png) | ![Datos](docs/excel-datos.png) |
+**Resumen**
+
+![Resumen](docs/excel-resumen.png)
+
+**Flota**
+
+![Flota](docs/excel-flota.png)
+
+**Alertas**
+
+![Alertas](docs/excel-alertas.png)
+
+**Sensores** (desplegable de vehículo y gráficos de degradación)
+
+![Sensores](docs/excel-sensores.png)
+
+**Datos**
+![Datos](docs/excel-datos.png) 
 
 ### Interpretabilidad
 Cada vehículo muestra los sensores que más reducen su RUL (valores SHAP de LightGBM).
