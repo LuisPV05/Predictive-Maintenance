@@ -1,5 +1,5 @@
 from openpyxl import Workbook
-from openpyxl.chart import BarChart, Reference, ScatterChart, Series
+from openpyxl.chart import BarChart, LineChart, Reference, ScatterChart, Series
 from openpyxl.chart.series import DataPoint
 from openpyxl.formatting.rule import FormulaRule
 from openpyxl.styles import Alignment, Font, PatternFill
@@ -18,11 +18,12 @@ GREEN = PatternFill(start_color="C6E0B4", end_color="C6E0B4", fill_type="solid")
 MAX_ALERTS = 50
 SENSOR_CHART = ["s11", "s4", "s12", "s7", "s15", "s21"]
 MAX_CYCLES = 400
+THRESHOLDS = list(range(0, 131, 5))
 
 
-def _header(ws, row, labels):
-    for col, label in enumerate(labels, start=1):
-        cell = ws.cell(row=row, column=col, value=label)
+def _header(ws, row, labels, start_col=1):
+    for j, label in enumerate(labels):
+        cell = ws.cell(row=row, column=start_col + j, value=label)
         cell.fill = HEADER_FILL
         cell.font = HEADER_FONT
         cell.alignment = Alignment(horizontal="center")
@@ -36,7 +37,7 @@ def _traffic_light(ws, status_col, cell_range):
         )
 
 
-def _build_params(ws, red, amber, cost_unplanned, cost_preventive):
+def _build_params(ws, red, amber, cost_unplanned, cost_preventive, horizon):
     ws["A1"] = "Parámetros (edita las celdas amarillas)"
     ws["A1"].font = TITLE_FONT
     rows = [
@@ -44,6 +45,7 @@ def _build_params(ws, red, amber, cost_unplanned, cost_preventive):
         ("Umbral ámbar: RUL menor que (ciclos)", amber),
         ("Coste de parada no planificada (€)", cost_unplanned),
         ("Coste de mantenimiento preventivo (€)", cost_preventive),
+        ("Horizonte de fallo: RUL real ≤ (ciclos)", horizon),
     ]
     for i, (label, value) in enumerate(rows, start=3):
         ws.cell(row=i, column=1, value=label)
@@ -156,6 +158,91 @@ def _build_summary(ws, n):
     ws.add_chart(chart, "D3")
 
 
+def _build_threshold(ws, df):
+    """Curva de coste por umbral, toda con fórmulas ligadas a Parametros."""
+    n = len(df)
+    first, last_v = 11, 10 + n  # filas de la tabla de vehículos
+    c_first, c_last = 11, 10 + len(THRESHOLDS)  # filas de la curva
+    P = f"$T${first}:$T${last_v}"  # RUL predicho
+    R = f"$U${first}:$U${last_v}"  # RUL real
+    cost_u, cost_p, horizon = "Parametros!$B$5", "Parametros!$B$6", "Parametros!$B$7"
+    amber = "Parametros!$B$4"
+
+    ws["A1"] = "Umbral de alerta óptimo"
+    ws["A1"].font = TITLE_FONT
+    ws["A2"] = "Se calcula con el RUL real de la flota de ejemplo y los costes de Parametros."
+    ws["A3"] = "Umbral óptimo (ciclos)"
+    ws["B3"] = (
+        f"=INDEX($A${c_first}:$A${c_last},"
+        f"MATCH(MIN($B${c_first}:$B${c_last}),$B${c_first}:$B${c_last},0))"
+    )
+    ws["A4"] = "Coste con el umbral óptimo (€)"
+    ws["B4"] = f"=MIN($B${c_first}:$B${c_last})"
+    ws["A5"] = "Umbral ámbar actual (ciclos)"
+    ws["B5"] = f"={amber}"
+    ws["A6"] = "Coste con el umbral actual (€)"
+    ws["B6"] = (
+        f'=COUNTIF({P},"<"&{amber})*{cost_p}'
+        f'+COUNTIFS({P},">="&{amber},{R},"<="&{horizon})*{cost_u}'
+    )
+    ws["A7"] = "Ahorro potencial (€)"
+    ws["B7"] = "=B6-B4"
+    for cell in ("B4", "B6", "B7"):
+        ws[cell].number_format = "#,##0"
+    for r in range(3, 8):
+        ws[f"B{r}"].font = Font(bold=True)
+    ws.column_dimensions["A"].width = 34
+    for col in "BCDE":
+        ws.column_dimensions[col].width = 20
+
+    _header(
+        ws,
+        10,
+        ["Umbral", "Coste (€)", "Alertas", "Fallos no detectados", "Falsas alarmas"],
+    )
+    for k, t in enumerate(THRESHOLDS):
+        r = c_first + k
+        ws.cell(row=r, column=1, value=t)
+        ws.cell(row=r, column=3, value=f'=COUNTIF({P},"<"&A{r})')
+        ws.cell(
+            row=r, column=4, value=f'=COUNTIFS({P},">="&A{r},{R},"<="&{horizon})'
+        )
+        ws.cell(
+            row=r,
+            column=5,
+            value=f'=C{r}-COUNTIFS({P},"<"&A{r},{R},"<="&{horizon})',
+        )
+        cell = ws.cell(row=r, column=2, value=f"=C{r}*{cost_p}+D{r}*{cost_u}")
+        cell.number_format = "#,##0"
+    ws.conditional_formatting.add(
+        f"A{c_first}:E{c_last}",
+        FormulaRule(
+            formula=[f"$B{c_first}=MIN($B${c_first}:$B${c_last})"], fill=GREEN
+        ),
+    )
+
+    # Datos de los vehículos (valores fijos; no dependen del orden de Flota)
+    _header(ws, 10, ["Vehículo", "RUL predicho", "RUL real"], start_col=19)
+    for i, row in enumerate(df.itertuples(index=False), start=first):
+        ws.cell(row=i, column=19, value=int(row.vehiculo))
+        ws.cell(row=i, column=20, value=float(row.rul_pred))
+        ws.cell(row=i, column=21, value=float(row.rul_real))
+
+    chart = LineChart()
+    chart.title = "Coste total por umbral de alerta"
+    chart.legend = None
+    chart.y_axis.title = "Coste (€)"
+    chart.x_axis.title = "Umbral (ciclos)"
+    chart.x_axis.delete = False
+    chart.y_axis.delete = False
+    chart.add_data(Reference(ws, min_col=2, min_row=10, max_row=c_last), titles_from_data=True)
+    chart.set_categories(Reference(ws, min_col=1, min_row=c_first, max_row=c_last))
+    chart.series[0].graphicalProperties.line.solidFill = "1F3864"
+    chart.series[0].smooth = False
+    chart.height, chart.width = 8, 15
+    ws.add_chart(chart, "G3")
+
+
 def _build_data(ws, readings):
     """Lecturas en bruto de todos los vehículos (ordenadas por vehículo y ciclo)."""
     cols = ["vehiculo", "ciclo"] + SENSOR_CHART
@@ -240,21 +327,30 @@ def build_dashboard(
     cost_unplanned=5000,
     cost_preventive=800,
     readings=None,
+    horizon=30,
 ):
-    """Genera el libro de Excel. Con 'readings' añade las hojas Sensores y Datos."""
+    """Genera el libro de Excel.
+
+    - Con 'readings' añade las hojas Sensores y Datos.
+    - Si df trae 'rul_real' añade la hoja Umbral.
+    """
+    with_threshold = "rul_real" in df.columns
     wb = Workbook()
     ws_summary = wb.active
     ws_summary.title = "Resumen"
     ws_fleet = wb.create_sheet("Flota")
     ws_alerts = wb.create_sheet("Alertas")
+    ws_threshold = wb.create_sheet("Umbral") if with_threshold else None
     ws_sensors = wb.create_sheet("Sensores") if readings is not None else None
     ws_params = wb.create_sheet("Parametros")
     ws_data = wb.create_sheet("Datos") if readings is not None else None
 
-    _build_params(ws_params, red, amber, cost_unplanned, cost_preventive)
+    _build_params(ws_params, red, amber, cost_unplanned, cost_preventive, horizon)
     _build_fleet(ws_fleet, df)
     _build_alerts(ws_alerts, len(df))
     _build_summary(ws_summary, len(df))
+    if with_threshold:
+        _build_threshold(ws_threshold, df)
     if readings is not None:
         _build_data(ws_data, readings)
         _build_sensors(ws_sensors, len(df), len(readings))

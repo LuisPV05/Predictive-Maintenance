@@ -35,6 +35,7 @@ LightGBM mejora el error medio, pero el score NASA (que penaliza más predecir t
 | Parametros | Umbrales rojo/ámbar y costes (celdas amarillas editables) |
 | Sensores | Evolución de sensores clave del vehículo elegido |
 | Datos | Lecturas en bruto que alimentan la hoja Sensores |
+| Umbral | Curva de coste por umbral, umbral óptimo y ahorro potencial (se recalcula al cambiar costes) |
 
 Por defecto: rojo si RUL < 30 ciclos, ámbar si < 60. Los costes (5.000 € por parada no planificada, 800 € por mantenimiento preventivo) son valores de ejemplo y se pueden cambiar.
 
@@ -109,6 +110,10 @@ python -m pytest -v
 
 **Datos**
 ![Datos](docs/excel-datos.png) 
+
+**Umbral** (el óptimo se recalcula al cambiar los costes)
+
+![Umbral](docs/excel-umbral.png)
 
 ### Interpretabilidad
 Cada vehículo muestra los sensores que más reducen su RUL (valores SHAP de LightGBM).
