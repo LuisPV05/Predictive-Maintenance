@@ -1,7 +1,9 @@
+from pathlib import Path
+
 import joblib
 import pandas as pd
 
-from src.data.load import load_cmapss
+from src.data.load import load_cmapss, load_rul_truth
 from src.features.build import build_features
 from src.models.baseline import last_cycle_per_unit
 from src.models.explain import contributions_by_sensor, top_drivers
@@ -37,11 +39,20 @@ def predict_from_raw(raw_df, model, scaler, with_drivers=False):
     return out
 
 
-def predict_fleet(raw_path="data/raw", with_drivers=True, **artifact_paths):
-    """Predice la flota de ejemplo (test_FD001)."""
+def predict_fleet(
+    raw_path="data/raw", with_drivers=True, with_truth=True, **artifact_paths
+):
+    """Predice la flota de ejemplo (test_FD001).
+
+    Con with_truth=True añade 'rul_real' si existe RUL_FD001.txt
+    (mismo orden que los motores 1..100 del test).
+    """
     model, scaler = load_artifacts(**artifact_paths)
     raw = load_cmapss(raw_path, split="test")
-    return predict_from_raw(raw, model, scaler, with_drivers=with_drivers)
+    out = predict_from_raw(raw, model, scaler, with_drivers=with_drivers)
+    if with_truth and (Path(raw_path) / "RUL_FD001.txt").exists():
+        out["rul_real"] = load_rul_truth(raw_path)["rul"].to_numpy()
+    return out
 
 
 def load_readings(raw_path="data/raw"):
