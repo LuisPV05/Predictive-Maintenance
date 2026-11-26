@@ -25,6 +25,17 @@ Proyecto personal de ciencia de datos sobre el dataset NASA C-MAPSS (turbofan), 
 
 LightGBM mejora el error medio, pero el score NASA (que penaliza más predecir tarde que pronto) no mejora respecto al Random Forest. La validación cruzada por motor da un RMSE de 17.8 ± 0.5, coherente con el test.
 
+### Resultados por subconjunto (LightGBM)
+
+| Subconjunto | Condiciones | RMSE | MAE | Score NASA |
+|---|---|---|---|---|
+| FD001 | 1 | 17.41 | 12.27 | 1027.69 |
+| FD002 | 6 | 16.06 | 11.68 | 1440.87 |
+| FD003 | 1 | 18.82 | 12.18 | 1488.43 |
+| FD004 | 6 | 19.14 | 13.84 | 2954.61 |
+
+FD002 y FD004 mezclan 6 condiciones operativas: los sensores se normalizan por condición (KMeans sobre los settings) antes de calcular medias y pendientes móviles.
+
 ## Dashboard Excel
 
 | Hoja | Contenido |
@@ -86,17 +97,6 @@ Por defecto: rojo si RUL < 30 ciclos, ámbar si < 60. Los costes (5.000 € por 
 ```bash
 python -m pytest -v
 ```
-
-### Resultados por subconjunto (LightGBM)
-
-| Subconjunto | Condiciones | RMSE | MAE | Score NASA |
-|---|---|---|---|---|
-| FD001 | 1 | 17.41 | 12.27 | 1027.69 |
-| FD002 | 6 | 16.06 | 11.68 | 1440.87 |
-| FD003 | 1 | 18.82 | 12.18 | 1488.43 |
-| FD004 | 6 | 19.14 | 13.84 | 2954.61 |
-
-FD002 y FD004 mezclan 6 condiciones operativas: los sensores se normalizan por condición (KMeans sobre los settings) antes de calcular medias y pendientes móviles.
 
 ## Capturas
 
