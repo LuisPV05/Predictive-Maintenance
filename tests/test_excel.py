@@ -81,3 +81,29 @@ def test_fleet_sheet_includes_drivers_column(tmp_path):
     ws = load_workbook(path)["Flota"]
     assert ws["F1"].value == "Sensores clave"
     assert ws["F2"].value == "s11, s4"
+
+def build_with_truth(tmp_path):
+    df = make_fleet()
+    df["rul_real"] = [8.0, 40.0, 70.0, 130.0]
+    path = tmp_path / "threshold.xlsx"
+    build_dashboard(df, path)
+    return load_workbook(path)
+
+
+def test_threshold_sheet_only_with_real_rul(tmp_path):
+    wb = build_with_truth(tmp_path)
+    assert "Umbral" in wb.sheetnames
+    assert "Umbral" not in build(tmp_path).sheetnames
+
+
+def test_threshold_is_formula_linked_to_costs(tmp_path):
+    ws = build_with_truth(tmp_path)["Umbral"]
+    assert str(ws["B3"].value).startswith("=")
+    assert "Parametros!$B$5" in ws["B11"].value
+    assert "Parametros!$B$6" in ws["B11"].value
+    assert len(ws._charts) == 1
+
+
+def test_horizon_parameter_default(tmp_path):
+    ws = build_with_truth(tmp_path)["Parametros"]
+    assert ws["B7"].value == 30
